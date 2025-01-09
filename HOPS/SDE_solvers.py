@@ -1,7 +1,13 @@
+# This file is part of https://github.com/Turku-Quantum-Optics/hops
+#
+# Copyright (c) 2024, Turku Quantum Optics
+# 
+# Licensed under the BSD 3-Clause License, see accompanying LICENSE,
+# and README.md for further information.
+
 import numpy as np
 import scipy as sp
-from scipy.integrate import solve_ivp, RK45
-import matplotlib.pyplot as plt 
+from scipy.integrate import RK45
 
 from typing import Callable
 

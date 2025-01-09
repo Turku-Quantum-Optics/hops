@@ -1,8 +1,14 @@
+# This file is part of https://github.com/Turku-Quantum-Optics/hops
+#
+# Copyright (c) 2024, Turku Quantum Optics
+# 
+# Licensed under the BSD 3-Clause License, see accompanying LICENSE,
+# and README.md for further information.
+
 import numpy as np
 import scipy as sp
 
 from typing import Callable
-from multiprocessing import Pool
 
 def normalDistribution(mu: float, sigma: float, size: int = None) -> np.ndarray:
     return np.random.default_rng().normal(mu, sigma, size * 2).view(dtype=complex)
