@@ -7,10 +7,7 @@
 
 import numpy as np
 
-import matplotlib.pyplot as plt
-
 from scipy.integrate._ivp.rk import RungeKutta, RK45, RK23, DOP853, RkDenseOutput, Dop853DenseOutput, dop853_coefficients
-from scipy.integrate import solve_ivp
 
 # Vendored copy of Scipy's RK-step function
 def _rk_step(fun, t, y, f, h, A, B, C, K):
@@ -165,54 +162,3 @@ class FixedStepDOP853(FixedStepRungeKutta):
         F[3:] = h * np.dot(self.D, K)
 
         return Dop853DenseOutput(self.t_old, self.t, self.y_old, F)
-
-def _main():
-    def func(t, y):
-        M = np.array([[0.01, 1, 0],
-                    [-1, 0.01, 0],
-                    [-1, -1, 1]])
-        return -t * M.dot(y)
-
-    solver = FixedStepDOP853(func, 0, [10, 10, 1], 20, 0.01)
-    solver = AdaptiveStepRK23(func, 0, [10, 10, 1], 20)
-    tSpace = [0]
-    solutions = [solver.y]
-    status = None
-    t = 0.0
-    while status is None:
-        solver.step()
-        if solver.status == 'finished':
-            status = 0
-        elif solver.status == 'failed':
-            status = -1
-            break
-        if solver.step_size == 0: continue
-        t = solver.t
-        y = solver.y
-        tSpace.append(t)
-        solutions.append(y)
-        
-    if status == -1:
-        print("Simulation failed!")
-
-    tSpace = np.array(tSpace)
-    solution = np.array(solutions)
-
-    #sol = solve_ivp(func, (tSpace[0], tSpace[-1]), [10, 10, 1], AdaptiveStepRK23, t_eval=tSpace)
-    #sol = solve_ivp(func, (tSpace[0], tSpace[-1]), [10, 10, 1], AdaptiveStepRK45, t_eval=tSpace)
-    #sol = solve_ivp(func, (tSpace[0], tSpace[-1]), [10, 10, 1], AdaptiveStepDOP853, t_eval=tSpace)
-    #sol = solve_ivp(func, (tSpace[0], tSpace[-1]), [10, 10, 1], FixedStepRK23, t_eval=tSpace, max_step=0.01)
-    #sol = solve_ivp(func, (tSpace[0], tSpace[-1]), [10, 10, 1], FixedStepRK45, t_eval=tSpace, max_step=0.01)
-    sol = solve_ivp(func, (tSpace[0], tSpace[-1]), [10, 10, 1], FixedStepDOP853, t_eval=tSpace, max_step=0.01)
-
-    plt.plot(tSpace, solution[:,0:3], label="y")
-    plt.plot(sol.t, sol.y[0], label="yf", linestyle="--")
-    plt.plot(sol.t, sol.y[1], label="yf", linestyle="--")
-    plt.plot(sol.t, sol.y[2], label="yf", linestyle="--")
-    plt.xlabel("t")
-    plt.ylabel("y")
-    plt.legend()
-    plt.show()
-
-if __name__ == '__main__':
-    _main()

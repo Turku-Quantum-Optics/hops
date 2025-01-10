@@ -44,21 +44,31 @@ def map_non_linear_trajectories_to_density_matrix(ground, excited):
 def linear_HOPS_independent_boson_model(trajectories: int):
     omega = 1
     delta = 1
-    tSpace = np.linspace(0, 50, 10000)
+    T = 50
+    tSpace = np.linspace(0, T, 10000)
+    # Hamiltonian
     H = Hamiltonian(omega, delta)
+    # Environment coupling operator
     L = np.array([[0, 1],
                   [1, 0]], dtype=complex)
+    # Spectral density of the phonon environment
     J = lambda omega: spectralDensity(omega, 0.027, 1.447)
-    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 9.0, 0.1, tSpace[-1], J)
+    # Generate noise processes
+    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 10.0, 0.1, T, J)
     noises = generator.generate(trajectories)
+
     initialCondition = np.array([np.sqrt(0.5), np.sqrt(0.5)], dtype=complex)
+    # Coefficients for the exponential series of the bath correlation function
     G = np.array([-0.00910165-0.03174624j, -0.00910165+0.03174624j, 0.03910214+0.0487802j, 0.03910214-0.0487802j, 
          0.00909684+0.0340994j, -0.00909684+0.0340994j, -0.01097494-0.03496594j, 0.01097494-0.03496594j], dtype=complex)
     W = np.array([1.23330001-2.72497136j, 1.23330001+2.72497136j, 1.02787572-1.33490999j, 1.02787572+1.33490999j,
-        1.08606533+2.54695103j, 1.08606533-2.54695103j, 0.8075923 -1.15778801j, 0.8075923 +1.15778801j], dtype=complex)
+        1.08606533+2.54695103j, 1.08606533-2.54695103j, 0.8075923-1.15778801j, 0.8075923+1.15778801j], dtype=complex)
+    # Calculate the trajectories
     _, ground, excited = linear_HOPS.solve_linear_HOPS(tSpace, initialCondition, H, L, noises, G, W, kMax=5, max_step=0.05, logProgress=True)
+    # Construct the density matrix of the system
     rho = map_linear_trajectories_to_density_matrix(ground, excited)
 
+    # Plot population and coherences 
     population = rho[:, 0, 0] - rho[:, 1, 1]
     coherences = 2 * rho[:, 0, 1].real
 
@@ -74,21 +84,31 @@ def linear_HOPS_independent_boson_model(trajectories: int):
 def non_linear_HOPS_independent_boson_model(trajectories: int):
     omega = 1
     delta = 1
-    tSpace = np.linspace(0, 50, 10000)
+    T = 50
+    tSpace = np.linspace(0, T, 10000)
+    # Hamiltonian
     H = Hamiltonian(omega, delta)
+    # Environment coupling operator
     L = np.array([[0, 1],
                   [1, 0]], dtype=complex)
+    # Spectral density of the phonon environment
     J = lambda omega: spectralDensity(omega, 0.027, 1.447)
-    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 10.0, 0.1, tSpace[-1], J)
+    # Generate noise processes
+    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 10.0, 0.1, T, J)
     noises = generator.generate(trajectories)
+    
     initialCondition = np.array([np.sqrt(0.5), np.sqrt(0.5)], dtype=complex)
+    # Coefficients for the exponential series of the bath correlation function
     G = np.array([-0.00910165-0.03174624j, -0.00910165+0.03174624j, 0.03910214+0.0487802j, 0.03910214-0.0487802j, 
          0.00909684+0.0340994j, -0.00909684+0.0340994j, -0.01097494-0.03496594j, 0.01097494-0.03496594j], dtype=complex)
     W = np.array([1.23330001-2.72497136j, 1.23330001+2.72497136j, 1.02787572-1.33490999j, 1.02787572+1.33490999j,
         1.08606533+2.54695103j, 1.08606533-2.54695103j, 0.8075923-1.15778801j, 0.8075923+1.15778801j], dtype=complex)
+    # Calculate the trajectories
     _, ground, excited = non_linear_HOPS.solve_non_linear_HOPS(tSpace, initialCondition, H, L, noises, G, W, kMax=5, max_step=0.01, logProgress=True)
+    # Construct the density matrix of the system
     rho = map_non_linear_trajectories_to_density_matrix(ground, excited)
-    
+
+    # Plot population and coherences    
     population = rho[:, 0, 0] - rho[:, 1, 1]
     coherences = 2 * rho[:, 0, 1].real
 
@@ -102,8 +122,10 @@ def non_linear_HOPS_independent_boson_model(trajectories: int):
     plt.close()
 
 def _main():
-    non_linear_HOPS_independent_boson_model(128)
+    # Compute the dynamics of the spin-boson model with 128 trajectories using linear HOPS
     linear_HOPS_independent_boson_model(128)
+    # Compute the dynamics of the spin-boson model with 128 trajectories using non-linear HOPS
+    non_linear_HOPS_independent_boson_model(128)
 
 if __name__ == "__main__":
     _main()

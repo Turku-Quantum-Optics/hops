@@ -107,6 +107,8 @@ class ProgressManager:
         self._queue = None
         self._progressUpdateThread = None
 
+# ----------------- TEST ----------------------
+
 def long_running_fn_2(progress: ProgressBar):
         for n in range(0, 100):
             progress.update(n)
@@ -114,7 +116,6 @@ def long_running_fn_2(progress: ProgressBar):
         return progress.taskID, "string"
 
 def _testWithProgressManager():
-
     trajectories = 1024
     with ProgressManager() as manager:
         mainProgress = manager.addProgress("[green]Simulating:", total=trajectories)
