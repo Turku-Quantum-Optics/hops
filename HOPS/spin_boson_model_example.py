@@ -1,6 +1,6 @@
 # This file is part of https://github.com/Turku-Quantum-Optics/hops
 #
-# Copyright (c) 2024, Turku Quantum Optics
+# Copyright (c) 2024-2025, Turku Quantum Optics
 # 
 # Licensed under the BSD 3-Clause License, see accompanying LICENSE,
 # and README.md for further information.
@@ -8,9 +8,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import linear_HOPS
-import non_linear_HOPS
 import noise_generation
+import HOPS
 
 class Hamiltonian:
     omega: float
@@ -27,105 +26,72 @@ class Hamiltonian:
 def spectralDensity(omega: np.ndarray, a: float, ksi: float) -> np.ndarray:
     return a * omega * omega * omega * np.exp(-omega * omega / (ksi * ksi))
 
-def map_linear_trajectories_to_density_matrix(ground, excited):
-    rho_t_00 = np.mean(ground * ground.conjugate(), axis=0).real
-    rho_t_01 = np.mean(ground * excited.conjugate(), axis=0)
-    rho_t_10 = rho_t_01.conjugate()
-    rho_t_11 = np.mean(excited * excited.conjugate(), axis=0).real
-    rho = np.array([np.array([[rho00, rho01], [rho10, rho11]], dtype=complex) for rho00, rho01, rho10, rho11 in zip(rho_t_00, rho_t_01, rho_t_10, rho_t_11)])
-    return rho
-
-def map_non_linear_trajectories_to_density_matrix(ground, excited):
-    norms = np.sqrt(ground * ground.conjugate() + excited * excited.conjugate())
-    groundNormalized = ground / norms 
-    excitedNormalized = excited / norms
-    return map_linear_trajectories_to_density_matrix(groundNormalized, excitedNormalized)
-
-def linear_HOPS_independent_boson_model(trajectories: int):
-    omega = 1
-    delta = 1
-    T = 50
-    tSpace = np.linspace(0, T, 10000)
-    # Hamiltonian
-    H = Hamiltonian(omega, delta)
-    # Environment coupling operator
-    L = np.array([[0, 1],
-                  [1, 0]], dtype=complex)
-    # Spectral density of the phonon environment
-    J = lambda omega: spectralDensity(omega, 0.027, 1.447)
-    # Generate noise processes
-    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 10.0, 0.1, T, J)
-    noises = generator.generate(trajectories)
-
-    initialCondition = np.array([np.sqrt(0.5), np.sqrt(0.5)], dtype=complex)
-    # Coefficients for the exponential series of the bath correlation function
-    G = np.array([-0.00910165-0.03174624j, -0.00910165+0.03174624j, 0.03910214+0.0487802j, 0.03910214-0.0487802j, 
-         0.00909684+0.0340994j, -0.00909684+0.0340994j, -0.01097494-0.03496594j, 0.01097494-0.03496594j], dtype=complex)
-    W = np.array([1.23330001-2.72497136j, 1.23330001+2.72497136j, 1.02787572-1.33490999j, 1.02787572+1.33490999j,
-        1.08606533+2.54695103j, 1.08606533-2.54695103j, 0.8075923-1.15778801j, 0.8075923+1.15778801j], dtype=complex)
-    # Calculate the trajectories
-    _, ground, excited = linear_HOPS.solve_linear_HOPS(tSpace, initialCondition, H, L, noises, G, W, kMax=5, max_step=0.05, logProgress=True)
-    # Construct the density matrix of the system
-    rho = map_linear_trajectories_to_density_matrix(ground, excited)
-
-    # Plot population and coherences 
-    population = rho[:, 0, 0] - rho[:, 1, 1]
-    coherences = 2 * rho[:, 0, 1].real
-
-    plt.figure()
-    plt.plot(tSpace, population.real, label="Population")
-    plt.plot(tSpace, coherences, label="Coherences")
-    plt.legend()
-    plt.xlabel("t")
-    plt.ylabel("p/c")
-    plt.show()
-    plt.close()
-
-def non_linear_HOPS_independent_boson_model(trajectories: int):
-    omega = 1
-    delta = 1
-    T = 50
-    tSpace = np.linspace(0, T, 10000)
-    # Hamiltonian
-    H = Hamiltonian(omega, delta)
-    # Environment coupling operator
-    L = np.array([[0, 1],
-                  [1, 0]], dtype=complex)
-    # Spectral density of the phonon environment
-    J = lambda omega: spectralDensity(omega, 0.027, 1.447)
-    # Generate noise processes
-    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 10.0, 0.1, T, J)
-    noises = generator.generate(trajectories)
-    
-    initialCondition = np.array([np.sqrt(0.5), np.sqrt(0.5)], dtype=complex)
-    # Coefficients for the exponential series of the bath correlation function
-    G = np.array([-0.00910165-0.03174624j, -0.00910165+0.03174624j, 0.03910214+0.0487802j, 0.03910214-0.0487802j, 
-         0.00909684+0.0340994j, -0.00909684+0.0340994j, -0.01097494-0.03496594j, 0.01097494-0.03496594j], dtype=complex)
-    W = np.array([1.23330001-2.72497136j, 1.23330001+2.72497136j, 1.02787572-1.33490999j, 1.02787572+1.33490999j,
-        1.08606533+2.54695103j, 1.08606533-2.54695103j, 0.8075923-1.15778801j, 0.8075923+1.15778801j], dtype=complex)
-    # Calculate the trajectories
-    _, ground, excited = non_linear_HOPS.solve_non_linear_HOPS(tSpace, initialCondition, H, L, noises, G, W, kMax=5, max_step=0.01, logProgress=True)
-    # Construct the density matrix of the system
-    rho = map_non_linear_trajectories_to_density_matrix(ground, excited)
-
-    # Plot population and coherences    
-    population = rho[:, 0, 0] - rho[:, 1, 1]
-    coherences = 2 * rho[:, 0, 1].real
-
-    plt.figure()
-    plt.plot(tSpace, population.real, label="Population")
-    plt.plot(tSpace, coherences, label="Coherences")
-    plt.legend()
-    plt.xlabel("t")
-    plt.ylabel("p/c")
-    plt.show()
-    plt.close()
-
 def _main():
-    # Compute the dynamics of the spin-boson model with 128 trajectories using linear HOPS
-    linear_HOPS_independent_boson_model(128)
-    # Compute the dynamics of the spin-boson model with 128 trajectories using non-linear HOPS
-    non_linear_HOPS_independent_boson_model(128)
+    trajectories = 512
+    omega = 1
+    delta = 1
+    T = 40
+    # Hamiltonian
+    H = Hamiltonian(omega, delta)
+    # Environment coupling operator
+    L = np.array([[0, 1],
+                  [1, 1]], dtype=complex)
+    # Spectral density of the phonon environment
+    J = lambda omega: spectralDensity(omega, 0.027, 1.447)
+
+    initialCondition = np.array([np.sqrt(0.5), np.sqrt(0.5)], dtype=complex)
+    # Coefficients for the exponential series of the bath correlation function
+    G = np.array([0.01687440926832053 + 0.03509995461639175j, 0.016874409268323128 - 0.03509995461638884j, 0.011593028595877951 - 0.03719991555698297j, 0.01159302859587723 + 0.03719991555697937j, -0.017728060308394755 + 0.05392982787285523j, 0.017728060308397728 + 0.05392982787285405j, 0.01596489084464861 - 0.05520023594463313j, -0.015964890844652396 - 0.05520023594462184j], dtype=complex)
+    W = np.array([1.0876249188125862 + 2.3898514992153306j, 1.0876249188125748 - 2.38985149921527j, 0.8948770561682661 + 1.1269147511706916j, 0.8948770561681868 - 1.1269147511706867j, 1.2328133815567413 - 2.3575606242184284j, 1.2328133815567357 + 2.3575606242184333j, 1.0326864061396819 - 0.9290694964506778j, 1.0326864061395853 + 0.9290694964506567j], dtype=complex)
+    
+    # Generate noise processes
+    generator = noise_generation.GaussianNoiseProcessFFTGenerator(0.0001, 10.0, 0.1, T, J)
+    noises = generator.generate(trajectories)
+
+    # Construct the hierarchy
+    hierarchy = HOPS.SingleParticleHierarchy(2, L, G, W, 4)
+
+    linearRho = None
+    linearTSpace = None
+     # Calculate the trajectories. In real simulations these would be parallelized
+    for noise in noises:
+        _tSpace, trajectory = hierarchy.solveLinearHOPS(0, T, initialCondition, H, noise, stepSize=0.05)
+        if linearTSpace is None:
+            linearTSpace = _tSpace
+        if linearRho is None:
+            linearRho = hierarchy.mapLinearTrajectory(trajectory) / trajectories
+        else:
+            linearRho += hierarchy.mapLinearTrajectory(trajectory) / trajectories
+    
+    nonLinearRho = None
+    nonLinearTSpace = None
+    # Calculate non-linear trajectories. In real simulations these would be parallelized
+    for noise in noises:
+        _tSpace, trajectory = hierarchy.solveNonLinearHOPS(0, T, initialCondition, H, noise, stepSize=0.05)
+        if nonLinearTSpace is None:
+            nonLinearTSpace = _tSpace
+        if nonLinearRho is None:
+            nonLinearRho = hierarchy.mapNonLinearTrajectory(trajectory) / trajectories
+        else:
+            nonLinearRho += hierarchy.mapNonLinearTrajectory(trajectory) / trajectories
+    
+    # Plot population and coherences 
+    linearPopulation = linearRho[:, 0, 0] - linearRho[:, 1, 1]
+    linearCoherence = 2 * linearRho[:, 0, 1].real
+
+    nonLinearPopulation = nonLinearRho[:, 0, 0] - nonLinearRho[:, 1, 1]
+    nonLinearCoherence = 2 * nonLinearRho[:, 0, 1].real
+
+    plt.figure()
+    plt.plot(linearTSpace, linearPopulation.real, label="Population (linear)")
+    plt.plot(linearTSpace, linearCoherence, label="Coherences (linear)")
+    plt.plot(nonLinearTSpace, nonLinearPopulation.real, label="Population (non-linear)", linestyle="--")
+    plt.plot(nonLinearTSpace, nonLinearCoherence, label="Coherences (non-linear)", linestyle="--")
+    plt.legend()
+    plt.xlabel("t")
+    plt.ylabel("p/c")
+    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     _main()

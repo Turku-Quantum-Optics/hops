@@ -1,6 +1,6 @@
 # This file is part of https://github.com/Turku-Quantum-Optics/hops
 #
-# Copyright (c) 2024, Turku Quantum Optics
+# Copyright (c) 2024-2025, Turku Quantum Optics
 # 
 # Licensed under the BSD 3-Clause License, see accompanying LICENSE,
 # and README.md for further information.

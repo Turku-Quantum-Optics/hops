@@ -1,5 +1,5 @@
 # HOPS README
-This repository provides a Python implementation of the Hierarchy of Pure States (HOPS) method [1], including both the linear and non-linear formulations. HOPS is a numerically exact approach for solving the time evolution of open quantum systems coupled to a non-Markovian environment composed of harmonic oscillators. Currently, the implementation is limited to two-level systems.
+This repository provides a Python implementation of the Hierarchy of Pure States (HOPS) method [1], including both the linear and non-linear formulations. HOPS is a numerically exact approach for solving the time evolution of open quantum systems coupled to a non-Markovian environment composed of harmonic oscillators.
 
 ## Dependencies
 The implementation requires the following Python libraries:  
