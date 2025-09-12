@@ -7,7 +7,7 @@
 
 import numpy as np
 
-def _findPartitions(array: list[int], index: int, number: int, reducedNum: int) -> list[list[int]]:
+def _find_partitions(array: list[int], index: int, number: int, reducedNum: int) -> list[list[int]]:
     result: list[list[int]] = list()
     if reducedNum < 0: return result
     if reducedNum == 0:
@@ -19,14 +19,21 @@ def _findPartitions(array: list[int], index: int, number: int, reducedNum: int) 
     previous = 1 if index == 0 else array[index - 1]
     for k in range(previous, number + 1):
         array[index] = k
-        for res in _findPartitions(array, index + 1, number, reducedNum - k):
+        for res in _find_partitions(array, index + 1, number, reducedNum - k):
             result.append(res)
 
     return result
 
-def findPartitions(number: int) -> list[list[int]]:
+def find_partitions(number: int) -> list[list[int]]:
     array = list(map(lambda _: 0, range(number)))
-    return _findPartitions(array, 0, number, number)
+    return _find_partitions(array, 0, number, number)
 
 def coth(x):
     return 1.0 / np.tanh(x)
+
+def next_power_of_two(num: int):
+    if num <= 1: return 1
+    if (num & (num - 1)) == 0: return num
+    power = 1
+    while power < num: power <<= 1
+    return power

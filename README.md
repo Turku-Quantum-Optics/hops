@@ -22,8 +22,10 @@ The code has been tested with Python versions 3.10, 3.11, and 3.12. Compatibilit
 To try it out, clone the repository and run the ```spin_boson_model_example.py``` script.
 ```shell
 git clone https://github.com/Turku-Quantum-Optics/hops.git
-cd hops/HOPS/
-python3 spin_boson_model_example.py
+cd hops/
+pip install -e .
+cd Examples
+python3 single_emitter_example.py
 ```
 
 ## References
