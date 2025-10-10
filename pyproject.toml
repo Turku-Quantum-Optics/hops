@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "HOPS"
-version = "0.1.1"
+version = "0.1.2"
 description = "Hierarchy of Pure States implementation in Python"
 authors = [
   { name = "Sebastian Toivonen", email = "smtoiv@utu.fi" }

@@ -88,35 +88,50 @@ def generate_B_matrix(L: np.ndarray, k_vectors: list[np.ndarray],
         row = index
         positive_neighbours = positive_neighbour_indices[index]
         negative_neighbours = negative_neighbour_indices[index]
-        for _, positive_neighbour_index in positive_neighbours:
+        for k_index, positive_neighbour_index in positive_neighbours:
             column = positive_neighbour_index
+            kG = np.sqrt(k_vector[k_index] + 1) * np.sqrt(G[k_index])
             for i in range(L_dagger.shape[0]):
                 for j in range(L_dagger.shape[1]):
                     if L_dagger[i, j] != 0:
-                        lil_matrix[row * L.shape[0] + i, column * L.shape[1] + j] = -L_dagger[i, j]
+                        lil_matrix[row * L.shape[0] + i, column * L.shape[1] + j] = -kG * L_dagger[i, j]
 
         for k_index, negative_neighbour_index in negative_neighbours:
             column = negative_neighbour_index
             if k_vector[k_index] == 0 or G[k_index] == 0: continue
-            kG = k_vector[k_index] * G[k_index]
+            kG = np.sqrt(k_vector[k_index]) * np.sqrt(G[k_index])
             for i in range(L.shape[0]):
                 for j in range(L.shape[1]):
                     if L[i, j] != 0:
                         lil_matrix[row * L.shape[0] + i, column * L.shape[1] + j] += kG * L[i, j]
     return lil_matrix.tocsr(copy=False)
 
-def generate_P_matrix(dimension: int, positive_neighbour_indices: list[list[tuple[int, int]]]) -> sp.sparse.csr_matrix:
+def generate_P_matrix(dimension: int, k_vectors: list[np.ndarray], G: np.ndarray, positive_neighbour_indices: list[list[tuple[int, int]]]) -> sp.sparse.csr_matrix:
     lil_matrix = sp.sparse.lil_matrix((dimension * len(positive_neighbour_indices), dimension * len(positive_neighbour_indices)), dtype=complex)
-    for index, positive_neighbours in enumerate(positive_neighbour_indices):
+    for index, k_vector in enumerate(k_vectors):
         row = index
-        for _, positive_neighbour_index in positive_neighbours:
+        positive_neighbours = positive_neighbour_indices[index]
+        for k_index, positive_neighbour_index in positive_neighbours:
             column = positive_neighbour_index
+            kG = np.sqrt(k_vector[k_index] + 1) * np.sqrt(G[k_index])
             for i in range(dimension):
-                lil_matrix[row * dimension + i, column * dimension + i] = 1 + 0j
+                lil_matrix[row * dimension + i, column * dimension + i] = kG
+    return lil_matrix.tocsr(copy=False)
+
+def generate_N_matrix(dimension: int, k_vectors: list[np.ndarray], G: np.ndarray, negative_neighbour_indices: list[list[tuple[int, int]]]) -> sp.sparse.csr_matrix:
+    lil_matrix = sp.sparse.lil_matrix((dimension * len(k_vectors), dimension * len(k_vectors)), dtype=complex)
+    for index, k_vector in enumerate(k_vectors):
+        row = index
+        negative_neighbours = negative_neighbour_indices[index]
+        for k_index, negative_neighbour_index in negative_neighbours:
+            column = negative_neighbour_index
+            kG = np.sqrt(k_vector[k_index]) * np.sqrt(G[k_index])
+            for i in range(dimension):
+                lil_matrix[row * dimension + i, column * dimension + i] = kG
     return lil_matrix.tocsr(copy=False)
 
 # Multi-emitter functions
-def generate_B_matrix_multi_emitter(L: list[np.ndarray], G: list[list[complex]],
+def generate_B_matrix_multi_emitter(L: list[np.ndarray], G: list[complex],
                                     k_vectors: list[list[int]], 
                                     positive_neighbour_indices: list[list[tuple[int, int]]], 
                                     negative_neighbour_indices: list[list[tuple[int, int]]],
@@ -129,35 +144,53 @@ def generate_B_matrix_multi_emitter(L: list[np.ndarray], G: list[list[complex]],
         for k_index, positive_neighbour_index in positive_neighbours:
             column = positive_neighbour_index
             (n, _, _) = k_vector_coordinate_map[k_index]
+            kG = np.sqrt(k_vector[k_index] + 1) * np.sqrt(G[k_index])
             Ln_dagger = L[n].T.conjugate()
             for i in range(Ln_dagger.shape[0]):
                 for j in range(Ln_dagger.shape[1]):
                     if Ln_dagger[i, j] != 0:
-                        B[row * Ln_dagger.shape[0] + i, column * Ln_dagger.shape[1] + j] = -Ln_dagger[i, j]
+                        B[row * Ln_dagger.shape[0] + i, column * Ln_dagger.shape[1] + j] = -kG * Ln_dagger[i, j]
             
         for k_index, negative_neighbour_index in negative_neighbours:
             column = negative_neighbour_index
             if k_vector[k_index] == 0 or G[k_index] == 0: continue
             (_, m, _) = k_vector_coordinate_map[k_index]
-            kG = k_vector[k_index] * G[k_index]
+            kG = np.sqrt(k_vector[k_index]) * np.sqrt(G[k_index])
             Lm = L[m]
             for i in range(Lm.shape[0]):
                 for j in range(Lm.shape[1]):
                     if Lm[i, j] != 0:
-                        B[row * Lm.shape[0] + i, column * Lm.shape[1] + j] = kG
+                        B[row * Lm.shape[0] + i, column * Lm.shape[1] + j] = kG * Lm[i, j]
     return B.tocsr(copy=False)
 
-def generate_P_matrices_multi_emitter(N: int, dimension: int, 
+def generate_P_matrices_multi_emitter(N: int, dimension: int, k_vectors: list[list[int]], G: list[complex],
                                       positive_neighbour_indices: list[list[tuple[int, int]]], 
                                       k_vector_coordinate_map: list[list[int]]) -> list[sp.sparse.csr_matrix]:
     lil_matrices = [sp.sparse.lil_matrix((dimension * len(positive_neighbour_indices), dimension * len(positive_neighbour_indices)), dtype=complex) for _ in range(N)]
-    for k_tuple_index, positive_neighbours in enumerate(positive_neighbour_indices):
+    for k_tuple_index, k_vector in enumerate(k_vectors):
         row = k_tuple_index
+        positive_neighbours = positive_neighbour_indices[k_tuple_index]
         for k_component_index, positive_neighbour_index in positive_neighbours:
             column = positive_neighbour_index
             (n, _, _) = k_vector_coordinate_map[k_component_index]
+            kG = np.sqrt(k_vector[k_component_index] + 1) * np.sqrt(G[k_component_index])
             for i in range(dimension):
-                lil_matrices[n][row * dimension + i, column * dimension + i] = 1 + 0j
+                lil_matrices[n][row * dimension + i, column * dimension + i] = kG
+    return [lilMatrix.tocsr(copy=False) for lilMatrix in lil_matrices]
+
+def generate_N_matrices_multi_emitter(N: int, dimension: int, k_vectors: list[list[int]], G: list[complex],
+                                      negative_neighbour_indices: list[list[tuple[int, int]]], 
+                                      k_vector_coordinate_map: list[list[int]]) -> list[sp.sparse.csr_matrix]:
+    lil_matrices = [sp.sparse.lil_matrix((dimension * len(negative_neighbour_indices), dimension * len(negative_neighbour_indices)), dtype=complex) for _ in range(N)]
+    for k_tuple_index, k_vector in enumerate(k_vectors):
+        row = k_tuple_index
+        negative_neighbours = negative_neighbour_indices[k_tuple_index]
+        for k_component_index, negative_neighbour_index in negative_neighbours:
+            column = negative_neighbour_index
+            (_, m, _) = k_vector_coordinate_map[k_component_index]
+            kG = np.sqrt(k_vector[k_component_index]) * np.sqrt(G[k_component_index])
+            for i in range(dimension):
+                lil_matrices[m][row * dimension + i, column * dimension + i] = kG
     return [lilMatrix.tocsr(copy=False) for lilMatrix in lil_matrices]
 
 def generate_shift_matrix_multi_emitter(N: int, G: np.ndarray, k_vector_coordinate_map: list[list[int]]) -> sp.sparse.csr_matrix:
