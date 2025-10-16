@@ -106,7 +106,6 @@ class FixedStepRK45(FixedStepRungeKutta):
     B = np.array([35/384, 0, 500/1113, 125/192, -2187/6784, 11/84])
     E = np.array([-71/57600, 0, 71/16695, -71/1920, 17253/339200, -22/525,
                   1/40])
-    # Corresponds to the optimum value of c_6 from [2]_.
     P = np.array([
         [1, -8048581381/2820520608, 8663915743/2820520608,
          -12715105075/11282082432],

@@ -475,3 +475,69 @@ def rungeKutta32OrderIto(tSpace: np.ndarray, y0: np.ndarray, alpha: Callable, be
         result.append(_rungeKutta32OrderItoStep(t, dt, y, alpha, beta, wienerProcess))
     result = np.array(result)
     return tSpace, result
+
+class SRK2SDESolver:
+    y: np.ndarray
+    y_old: np.ndarray = None
+
+    tIndex: int = 0
+    t_old: float = None
+
+    status: str = "running"
+
+    # Drift
+    alpha: Callable[[float, np.ndarray], np.ndarray]
+
+    # Diffusion terms
+    betas: list[Callable[[float, np.ndarray], np.ndarray]]
+
+    # Wiener processes
+    dWs: list[Callable[[float], complex]]
+
+    tSpace: np.ndarray
+    initial_condition: np.ndarray
+    dt: float
+
+    def __init__(self, tSpace: np.ndarray, initial_condition: np.ndarray, drift: Callable[[float, np.ndarray], np.ndarray], diffusions: list[Callable[[float, np.ndarray], np.ndarray]], wiener_processes: list[Callable[[float], complex]]):
+        self.tSpace = tSpace
+        self.initial_condition = initial_condition
+        self.alpha = drift
+        self.betas = diffusions
+        self.dWs = wiener_processes
+        self.y = initial_condition
+        self.dt = tSpace[1] - tSpace[0]
+
+    def step(self):
+        if self.status == "finished":
+            return
+        t = self.t
+        dt = self.dt
+        self.tIndex += 1
+        self.y_old = self.y
+        self.t_old = t
+        self.y = _srk2Step(t, dt, self.y, self.alpha, self.betas, self.dWs)
+        if self.tIndex >= self.tSpace.size: 
+            self.status = "finished"
+
+    @property
+    def t(self):
+        if self.tIndex >= self.tSpace.size:
+            return self.tSpace[-1]
+        return self.tSpace[self.tIndex]
+    
+    @property
+    def step_size(self):
+        return self.t - self.t_old
+
+# Also known as Heun method
+def _srk2Step(t: float, dt: float, y: np.ndarray, 
+              alpha: Callable[[float, np.ndarray], np.ndarray],
+              betas: list[Callable[[float, np.ndarray], np.ndarray]],
+              dWs: list[Callable[[float], complex]]):
+    k1 = alpha(t, y) * dt
+    for beta, dW in zip(betas, dWs):
+        k1 += beta(t, y) * dW(t) * np.sqrt(dt)
+    k2 = alpha(t + dt, y + k1) * dt
+    for beta, dW in zip(betas, dWs):
+        k2 += beta(t + dt, y) * dW(t) * np.sqrt(dt)
+    return y + 0.5 * (k1 + k2)

@@ -241,7 +241,7 @@ class GaussianWhiteNoiseProcess(NoiseProcess):
 
     def __init__(self, mu, deviation):
         self.mu = mu
-        self.deviation = np.sqrt(deviation / 2)
+        self.deviation = np.sqrt(deviation)
         self.samples = dict()
         self.generator = np.random.default_rng()
 

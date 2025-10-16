@@ -218,3 +218,11 @@ def create_noise_shift_indices(N: int, k_vector_coordinate_map: list[list[int]])
         result.append((start, end))
         start = end
     return result
+
+def diffusion_converter(t, current_states, system_dimension, shift_dimension, original):
+    if shift_dimension > 0:
+        vectors = current_states[:-shift_dimension].reshape(-1, system_dimension)
+        return np.concatenate((vectors.dot(original(t, vectors[0]).T).flatten(), np.zeros(shift_dimension)))
+    else:
+        vectors = current_states.reshape(-1, system_dimension)
+        return vectors.dot(original(t, vectors[0]).T).flatten()

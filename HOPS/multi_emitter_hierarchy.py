@@ -8,12 +8,13 @@
 import numpy as np
 
 from typing import Callable
+from functools import partial
 
 from .hierarchy import HOPSHierarchy
 from . import hops_utils
 from . import ODE_solvers
+from . import SDE_solvers
 
-# TODO: White noise support
 # TODO: Allow for a custom truncation condition of the auxiliary states (instead of the default triangular truncation condition)
 
 # Multi emitter implementation    
@@ -61,20 +62,30 @@ class MultiParticleHierarchy(HOPSHierarchy):
         self.G = np.array(flattened_G, dtype=complex).conjugate()
         self.W = np.array(flattened_W, dtype=complex).conjugate()
 
-    def solve_linear_HOPS(self, start: float, end: float, initial_state: np.ndarray, H: Callable[[float, np.ndarray], np.ndarray], z: list[Callable[[float], complex]], custom_operators: Callable[[float, np.ndarray], np.ndarray] = [], step_size: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
-        calculation = _HOPSCalculationMultiEmitter(self, H, z, None, custom_operators)
+    def solve_linear_HOPS(self, start: float, end: float, initial_state: np.ndarray, H: Callable[[float, np.ndarray], np.ndarray], z: list[Callable[[float], complex]], custom_operators: Callable[[float, np.ndarray], np.ndarray] = [], diffusion_operators: list[Callable[[float, np.ndarray], np.ndarray]] = [], white_noises: list[Callable[[float], complex]] = [], step_size: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
+        calculation = _HOPSCalculationMultiEmitter(self, H, z, None, custom_operators, diffusion_operators, noise_shifted=False)
         initial_states = np.concatenate((initial_state, np.zeros(self.B.shape[0] - self.dimension)))
-        solver = ODE_solvers.FixedStepRK45(calculation._linear_step, start, initial_states, end, max_step=step_size)
+        if len(diffusion_operators) == 0:
+            solver = ODE_solvers.FixedStepRK45(calculation._linear_step, start, initial_states, end, max_step=step_size)
+        else:
+            assert(len(diffusion_operators) == len(white_noises))
+            tSpace = np.linspace(start, end, num=int((end - start)//step_size) + 1, endpoint=True)
+            solver = SDE_solvers.SRK2SDESolver(tSpace, initial_states, calculation._linear_step, calculation.diffusion_operators, white_noises)
         return self._propagate(self.dimension, solver)
 
-    def solve_non_linear_HOPS(self, start: float, end: float, initial_state: np.ndarray, H: Callable[[float, np.ndarray], np.ndarray], z: list[Callable[[float], complex]], shift_type: str | None = None, custom_operators: Callable[[float, np.ndarray], np.ndarray] = [], step_size: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
+    def solve_non_linear_HOPS(self, start: float, end: float, initial_state: np.ndarray, H: Callable[[float, np.ndarray], np.ndarray], z: list[Callable[[float], complex]], shift_type: str | None = None, custom_operators: Callable[[float, np.ndarray], np.ndarray] = [], diffusion_operators: list[Callable[[float, np.ndarray], np.ndarray]] = [], white_noises: list[Callable[[float], complex]] = [], step_size: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
         if shift_type is not None and shift_type != "mean-field":
             print(f"Unsupported shift type: {shift_type}")
             print("Supported shift types: None, \"mean-field\"")
             print("Running simulation with no shift")
-        calculation = _HOPSCalculationMultiEmitter(self, H, z, shift_type, custom_operators)
+        calculation = _HOPSCalculationMultiEmitter(self, H, z, shift_type, custom_operators, diffusion_operators, noise_shifted=True)
         initial_states = np.concatenate((initial_state, np.zeros(self.B.shape[0] - self.dimension + self.G.shape[0])))
-        solver = ODE_solvers.FixedStepRK45(calculation._non_linear_step, start, initial_states, end, max_step=step_size)
+        if len(diffusion_operators) == 0:
+            solver = ODE_solvers.FixedStepRK45(calculation._non_linear_step, start, initial_states, end, max_step=step_size)
+        else:
+            assert(len(diffusion_operators) == len(white_noises))
+            tSpace = np.linspace(start, end, num=int((end - start)//step_size) + 1, endpoint=True)
+            solver = SDE_solvers.SRK2SDESolver(tSpace, initial_states, calculation._non_linear_step, calculation.diffusion_operators, white_noises)
         return self._propagate(self.dimension, solver)
 
 class _HOPSCalculationMultiEmitter: 
@@ -83,14 +94,23 @@ class _HOPSCalculationMultiEmitter:
     z: list[Callable[[float], complex]]
     shift_type: str | None
     custom_operators: list[Callable[[float, np.ndarray], np.ndarray]]
+    diffusion_operators: list[Callable[[float, np.ndarray], np.ndarray]]
 
-    def __init__(self, hierarchy, H, z, shift_type, custom_operators):
+    def __init__(self, hierarchy, H, z, shift_type, custom_operators, diffusion_operators, noise_shifted=False):
         assert(len(z) == len(hierarchy.L))
         self.hierarchy = hierarchy
         self.H = H
         self.z = z
         self.shift_type = shift_type
         self.custom_operators = custom_operators
+        self.diffusion_operators = []
+        if len(diffusion_operators) != 0:
+            for g in diffusion_operators:
+                if noise_shifted:
+                    converted_g = partial(hops_utils.diffusion_converter, system_dimension=hierarchy.dimension, shift_dimension=len(hierarchy.G), original=g)
+                else:
+                    converted_g = partial(hops_utils.diffusion_converter, system_dimension=hierarchy.dimension, shift_dimension=0, original=g)
+                self.diffusion_operators.append(converted_g)
 
     def _linear_step(self, t: float, current_states: np.ndarray):
         H_eff = -1j * self.H(t, current_states[0:self.hierarchy.dimension])
